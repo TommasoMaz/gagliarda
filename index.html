@@ -598,7 +598,7 @@ window.addEventListener('load',()=>{
   document.getElementById('splash-logo-w').src=LOGO_W;
   document.getElementById('splash-logo-l').src=LOGO_L;
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').then(reg=>{
+    navigator.serviceWorker.register('./sw.js').then(reg=>{
       reg.addEventListener('updatefound',()=>{
         const w=reg.installing;
         w.addEventListener('statechange',()=>{
