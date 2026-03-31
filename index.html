@@ -115,7 +115,7 @@ body.light .s-own      { background:#f0f0f0 !important; color:#111 !important; }
 }
 
 /* Header logo – bigger */
-.logo-small { height:52px; display:flex; align-items:center; }
+.logo-small { height:52px; display:flex; align-items:center; cursor:pointer; }
 .logo-small .lw { height:52px; display:block; mix-blend-mode:screen; }
 .logo-small .ll { height:52px; display:none;  }
 
@@ -408,7 +408,7 @@ function buildSlides() {
 
     slide.innerHTML = `
       <div class="top-bar">
-        <div class="logo-small">
+        <div class="logo-small" onclick="goBack()">
           <img class="lw" src="${LOGO_W}" alt="G">
           <img class="ll" src="${LOGO_L}" alt="G">
         </div>
@@ -586,6 +586,19 @@ function setTheme(m) {
   document.getElementById('t-moon').classList.toggle('on',isDark);
   document.getElementById('t-sun').classList.toggle('on',!isDark);
 }
+function goBack() {
+  // Stop all running timers
+  timers.forEach((t, i) => {
+    if (t.running) { t.running = false; clearInterval(t.interval); t.interval = null; }
+  });
+  // Show splash again
+  const splash = document.getElementById('splash');
+  splash.style.display = 'flex';
+  splash.style.opacity = '0';
+  document.getElementById('app').style.display = 'none';
+  requestAnimationFrame(() => { splash.style.opacity = '1'; });
+}
+
 function startApp() {
   getCtx();
   buildSlides();
