@@ -408,7 +408,7 @@ function buildSlides() {
       : cfg.ns==='replica'
         ? `<div class="name-wrap"><select class="name-sel" id="name-${i}"><option value="">— seleziona —</option></select><div class="arr">▾</div></div>`
         : cfg.ns
-          ? `<div class="name-wrap"><select class="name-sel" id="name-${i}" onchange="updateReplica()"><option value="">— seleziona —</option>${NAMESETS[cfg.ns].map(n=>`<option>${n}</option>`).join('')}</select><div class="arr">▾</div></div>`
+          ? `<div class="name-wrap"><select class="name-sel" id="name-${i}" onchange="updateNameSelects()"><option value="">— seleziona —</option>${NAMESETS[cfg.ns].map(n=>`<option>${n}</option>`).join('')}</select><div class="arr">▾</div></div>`
           : '';
 
     slide.innerHTML = `
@@ -452,6 +452,37 @@ function buildSlides() {
   updateAllDots();
   goTo(0);
   for(let i=0;i<N;i++) updateSlide(i);
+}
+
+function updateNameSelects() {
+  // Gather all non-replica own-team selects
+  const ownSels = [];
+  slideConfigs.forEach((cfg, i) => {
+    if (cfg.team === 'own' && cfg.ns && cfg.ns !== 'replica') {
+      const el = document.getElementById('name-' + i);
+      if (el) ownSels.push({ i, el });
+    }
+  });
+
+  // Build map: slideIndex → chosen value
+  const chosen = {};
+  ownSels.forEach(({ i, el }) => { if (el.value) chosen[i] = el.value; });
+
+  // For each select, disable options already chosen in OTHER selects
+  ownSels.forEach(({ i, el }) => {
+    const others = Object.entries(chosen)
+      .filter(([k]) => parseInt(k) !== i)
+      .map(([, v]) => v);
+    Array.from(el.options).forEach(opt => {
+      if (!opt.value) return; // leave the placeholder alone
+      opt.disabled = others.includes(opt.value);
+      // If this select's current value was disabled by another, reset it
+      if (opt.disabled && opt.selected) { el.value = ''; }
+    });
+  });
+
+  // Replica dropdown still follows the chosen speakers
+  updateReplica();
 }
 
 function updateReplica() {
@@ -618,7 +649,7 @@ function startApp() {
   try { getCtx(); } catch(e) {}
   buildSlides();
   setupSwipe();
-  updateReplica();
+  updateNameSelects();
   const s=document.getElementById('splash');
   s.style.opacity='0';
   setTimeout(()=>{s.style.display='none';document.getElementById('app').style.display='flex';},480);
