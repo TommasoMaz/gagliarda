@@ -550,10 +550,78 @@ function updateAllDots() {
 }
 
 // ===== TIMER =====
+// ===== WAKE LOCK — prevent screen sleep on iOS & Android =====
+let wakeLock = null;
+
+// iOS fallback: tiny silent video loop (NoSleep technique)
+let noSleepVideo = null;
+function buildNoSleepVideo() {
+  if (noSleepVideo) return;
+  // 1×1 transparent mp4 encoded as base64 — universally accepted by iOS Safari
+  const src = 'data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAAIZnJlZQAAA' +
+    'MFtZGF0AAACrQYF//+p3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2MSByMzAyNyBhYzU2ZjM1IC0g' +
+    'SC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMiAtIGh0dHA6Ly93d3cudmlkZW9s' +
+    'YW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTEgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNl' +
+    'PTB4MzoweDExMyBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1l' +
+    'X3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MSBjcW09MCBkZWFkem9uZT0yMSwxMSBm' +
+    'YXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNv' +
+    'bnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0zIGJfcHlyYW1pZD0yIGJfYWRhcHQ9MSBiX2JpYXM9MCBkaXJl' +
+    'Y3Q9MSB3ZWlnaHRiPTEgb3Blbl9nb3A9MCB3ZWlnaHRwPTIga2V5aW50PTI1MCBrZXlpbnRfbWluPTI1IHNj' +
+    'ZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0y' +
+    'My4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4w' +
+    'MAAAAA9BbYRDf+AAAA/mAAADAAAeAQcnge1AAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEA' +
+    'AAAAAA==';
+  noSleepVideo = document.createElement('video');
+  noSleepVideo.setAttribute('loop', '');
+  noSleepVideo.setAttribute('playsinline', '');
+  noSleepVideo.setAttribute('muted', '');
+  noSleepVideo.style.cssText = 'position:fixed;width:1px;height:1px;top:-2px;left:-2px;opacity:0;pointer-events:none;';
+  noSleepVideo.src = src;
+  document.body.appendChild(noSleepVideo);
+}
+
+function anyTimerRunning() {
+  return timers.some(t => t.running);
+}
+
+async function requestWakeLock() {
+  // 1. Screen Wake Lock API (Chrome Android, Chrome desktop, Safari 16.4+)
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+      return;
+    } catch(e) {}
+  }
+  // 2. iOS fallback: silent video loop
+  buildNoSleepVideo();
+  noSleepVideo.play().catch(() => {});
+}
+
+function releaseWakeLock() {
+  if (anyTimerRunning()) return; // another timer still running
+  if (wakeLock) { wakeLock.release().catch(()=>{}); wakeLock = null; }
+  if (noSleepVideo) { noSleepVideo.pause(); }
+}
+
+// Re-acquire if OS releases it (e.g. tab switch then return)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && anyTimerRunning()) {
+    requestWakeLock();
+  }
+});
+
 function toggleTimer(i) {
   const t=timers[i];
-  if(!t.running){ t.running=true; t.interval=setInterval(()=>tick(i),1000); }
-  else          { t.running=false; clearInterval(t.interval); t.interval=null; }
+  if(!t.running){
+    t.running=true;
+    t.interval=setInterval(()=>tick(i),1000);
+    requestWakeLock();
+  } else {
+    t.running=false;
+    clearInterval(t.interval); t.interval=null;
+    releaseWakeLock();
+  }
   updateSlide(i);
 }
 
