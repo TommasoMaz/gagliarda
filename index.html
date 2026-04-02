@@ -25,6 +25,11 @@
 <title>Gagliarda</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
+
+/* Eliminate 300ms tap delay on iOS Safari for all interactive elements */
+a, button, select, .dot, .logo-small, .timer-tap, .tbtn, .mode-btn, .rst-btn, .main-btn {
+  touch-action: manipulation;
+}
 html, body {
   width:100%; height:100%; overflow:hidden;
   background:#000; color:#fff;
