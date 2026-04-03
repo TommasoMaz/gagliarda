@@ -666,10 +666,10 @@ function _onTouchEnd(){
   if(!drag)return; drag=false;
   const el=document.getElementById('slides'); el.style.transition='';
   const N=slideConfigs.length;
-  // Only change slide if it was a real swipe (|dOff| > 50px), not a tap
-  if(dOff<-50&&currentSlide<N-1){ currentSlide++; goTo(currentSlide); }
-  else if(dOff>50&&currentSlide>0){ currentSlide--; goTo(currentSlide); }
-  // If dOff is small (tap on a button/select), do nothing — avoids iOS click-cancel
+  if(dOff<-50&&currentSlide<N-1){ currentSlide++; }
+  else if(dOff>50&&currentSlide>0){ currentSlide--; }
+  // Always snap to the (possibly unchanged) current slide — no half-visible states
+  if(Math.abs(dOff)>5) goTo(currentSlide);
 }
 function setupSwipe() {
   const el=document.getElementById('slides');
