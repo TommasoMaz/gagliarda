@@ -333,23 +333,44 @@ function getCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
-function playBell(vol = 0.5) {
+
+function playBell(vol = 1.0) {
   try {
     const ctx = getCtx(), now = ctx.currentTime;
-    [[1046.5,1.0],[2093,.5],[3136,.28],[4186,.16],[5274,.09],[6272,.05]].forEach(([f,a])=>{
+
+    // Master chain: gain boost → dynamics compressor → destination
+    // The compressor acts as a limiter preventing distortion while maximising loudness
+    const masterGain = ctx.createGain();
+    masterGain.gain.setValueAtTime(4.0, now); // 4× amplification
+
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -6;   // start compressing at -6 dB
+    comp.knee.value      = 2;
+    comp.ratio.value     = 12;   // heavy compression → near-constant loudness
+    comp.attack.value    = 0.001;
+    comp.release.value   = 0.1;
+
+    masterGain.connect(comp);
+    comp.connect(ctx.destination);
+
+    // Bell partials — all routed through masterGain
+    [[1046.5,1.0],[2093,0.55],[3136,0.32],[4186,0.20],[5274,0.12],[6272,0.07]].forEach(([f,a])=>{
       const o=ctx.createOscillator(), g=ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
+      o.connect(g); g.connect(masterGain);
       o.type='triangle'; o.frequency.value=f;
-      g.gain.setValueAtTime(vol*a,now);
-      g.gain.setTargetAtTime(0.0001,now+0.015,0.16);
-      o.start(now); o.stop(now+1.2);
+      g.gain.setValueAtTime(vol*a, now);
+      g.gain.setTargetAtTime(0.0001, now+0.015, 0.18);
+      o.start(now); o.stop(now+1.4);
     });
-    const c=ctx.createOscillator(),cg=ctx.createGain();
-    c.connect(cg); cg.connect(ctx.destination);
+
+    // Metallic click onset
+    const c=ctx.createOscillator(), cg=ctx.createGain();
+    c.connect(cg); cg.connect(masterGain);
     c.type='sawtooth'; c.frequency.value=7000;
-    cg.gain.setValueAtTime(vol*0.22,now);
-    cg.gain.exponentialRampToValueAtTime(0.0001,now+0.025);
-    c.start(now); c.stop(now+0.03);
+    cg.gain.setValueAtTime(vol*0.35, now);
+    cg.gain.exponentialRampToValueAtTime(0.0001, now+0.03);
+    c.start(now); c.stop(now+0.04);
+
   } catch(e){}
 }
 
