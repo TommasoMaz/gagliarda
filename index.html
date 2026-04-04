@@ -331,12 +331,21 @@ const PROT_SECS = 60;
 let audioCtx = null;
 function getCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // iOS suspends the context until a user gesture — always resume
+  if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
 
 function playBell(vol = 1.0) {
   try {
     const ctx = getCtx(), now = ctx.currentTime;
+
+    // iOS Safari suspends AudioContext when there is no active user gesture.
+    // We must resume it before scheduling any nodes.
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(() => playBell(vol)); // retry once resumed
+      return;
+    }
 
     // Master chain: gain boost → dynamics compressor → destination
     // The compressor acts as a limiter preventing distortion while maximising loudness
@@ -634,6 +643,8 @@ document.addEventListener('visibilitychange', () => {
 
 function toggleTimer(i) {
   const t=timers[i];
+  // Always try to unlock audio on user gesture
+  try { getCtx(); } catch(e) {}
   if(!t.running){
     t.running=true;
     t.interval=setInterval(()=>tick(i),1000);
